@@ -1,0 +1,21 @@
+# Environment variables (contains private tokens & secrets)
+.env
+.env.local
+.env.*.local
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Logs & temp files
+*.log
+tmp/
+temp/
