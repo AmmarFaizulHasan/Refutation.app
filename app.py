@@ -319,7 +319,7 @@ def generate_reply(
             log.info("Uploading %s to Google Gemini Files API...", mime_type)
             uploaded_file = gemini_client.files.upload(
                 file=temp_media_path,
-                mime_type=mime_type,
+                config={"mime_type": mime_type},
             )
 
             # If video, wait for server-side processing to reach ACTIVE state
