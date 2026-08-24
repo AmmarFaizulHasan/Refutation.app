@@ -27,10 +27,10 @@ from google.genai import types
 load_dotenv()
 
 # ---- Configuration ----
-IG_USER_ID = os.environ["IG_USER_ID"]
-IG_ACCESS_TOKEN = os.environ["IG_ACCESS_TOKEN"]
-META_APP_SECRET = os.environ["META_APP_SECRET"]
-WEBHOOK_VERIFY_TOKEN = os.environ.get("WEBHOOK_VERIFY_TOKEN", "refutation_webhook_secure_token_2026")
+IG_USER_ID = os.environ.get("IG_USER_ID", "17841436318496311").strip()
+IG_ACCESS_TOKEN = os.environ.get("IG_ACCESS_TOKEN", "EAAVwYwcJ5Y8BSUF8QCqXVwwZBGWWWz7F7TSPGYhJhnikIemk1TtwgwIse78fDziqd4SwQXbxnvXvDc9ddnpmu8OzAtI4GzOwlQv0zNRQ6TcbAb0PUuhdwRUje9t7zV8LulZC7urRLLvbwiwkn7ZC2GGXTW20MUCZB57Dcu9n3lKlsbDpEg0BieMeaLtkoU5iAomZCX1TZA").strip()
+META_APP_SECRET = os.environ.get("META_APP_SECRET", "a50c3050dbaf2a529b9aeab03b462c7f").strip()
+WEBHOOK_VERIFY_TOKEN = os.environ.get("WEBHOOK_VERIFY_TOKEN", "refutation_webhook_secure_token_2026").strip()
 GRAPH_API_VERSION = os.environ.get("GRAPH_API_VERSION", "v22.0")
 GRAPH_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 
@@ -96,30 +96,52 @@ def receive_webhook():
         abort(403)
 
     body = request.get_json(force=True, silent=True) or {}
+    log.info("Received valid webhook event from Meta: %s", body)
+
     if body.get("object") != "instagram":
-        return "ignored", 200
+        return "EVENT_RECEIVED", 200
 
     for entry in body.get("entry", []):
         for change in entry.get("changes", []):
             if change.get("field") == "mentions":
                 try:
                     handle_mention(change.get("value", {}))
+                except requests.exceptions.HTTPError as http_err:
+                    # In Meta Dashboard test triggers, mock IDs (e.g. 0 or 17899...) return 400
+                    log.warning("Graph API request for mention failed (likely mock/test event): %s", http_err)
                 except Exception:
                     log.exception("Failed to handle mention event: %s", change)
 
-    # Respond fast (200 OK) so Meta does not retry/back off
-    return "ok", 200
+    # Respond fast with 200 OK so Meta registers the test as successful
+    return "EVENT_RECEIVED", 200
 
 
 def _verify_signature(req) -> bool:
-    """Confirms the request originated from Meta using HMAC SHA-256."""
-    signature = req.headers.get("X-Hub-Signature-256", "")
-    if not signature.startswith("sha256="):
+    """Confirms the request originated from Meta using HMAC SHA-256 (or SHA-1 fallback)."""
+    sig_header = req.headers.get("X-Hub-Signature-256") or req.headers.get("X-Hub-Signature")
+    if not sig_header:
+        log.warning("Signature header (X-Hub-Signature-256 / X-Hub-Signature) missing.")
         return False
-    expected = hmac.new(
-        META_APP_SECRET.encode(), req.get_data(), hashlib.sha256
-    ).hexdigest()
-    return hmac.compare_digest(signature.split("=", 1)[1], expected)
+
+    secret = META_APP_SECRET.encode("utf-8")
+    raw_data = req.get_data()
+
+    if sig_header.startswith("sha256="):
+        algo = hashlib.sha256
+        received_sig = sig_header[7:].strip()
+    elif sig_header.startswith("sha1="):
+        algo = hashlib.sha1
+        received_sig = sig_header[5:].strip()
+    else:
+        log.warning("Unknown signature format: %s", sig_header)
+        return False
+
+    expected_sig = hmac.new(secret, raw_data, algo).hexdigest()
+    is_valid = hmac.compare_digest(received_sig, expected_sig)
+    
+    if not is_valid:
+        log.warning("Signature mismatch! Expected: %s, Received: %s", expected_sig, received_sig)
+    return is_valid
 
 
 # ---------------------------------------------------------------------------
