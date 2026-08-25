@@ -1,120 +1,138 @@
-# Instagram Multimodal Mention-Reply Bot (Reels, Videos & Photos)
+<div align="center">
+  <h1>📸 Refutation.app</h1>
+  <p><strong>Intelligent Multimodal Instagram Mention & Comment Reply Automation</strong></p>
 
-Watches for @mentions of your Instagram Business/Creator account under **other people's posts and Reels** (in captions or comments), downloads and **watches/analyzes the video or image content** using Google Gemini's multimodal AI, drafts an authentic contextual reply, publishes it via Instagram's official Mentions API, and notifies you on Telegram.
-
----
-
-## Why Google Gemini API vs. Grok / Groq?
-
-| Feature | **Google Gemini API (`gemini-3.6-flash`)** | **Groq API** | **xAI Grok** |
-| :--- | :--- | :--- | :--- |
-| **Native Video Processing** | ✅ **Native Video & Audio Understanding** (Direct MP4/MOV upload; reads video frames, dialogue, gestures, text overlays) | ❌ **No Video Support** (Images & Whisper audio only; cannot process video files directly) | ❌ **No Video Support** (Multi-image vision only; no video upload API) |
-| **Free Tier** | ✅ **100% Free** via Google AI Studio (No credit card required; 15 RPM, 1M tokens/min, 1,500 requests/day) | ✅ Free tier for text & Whisper, but lacks video multimodal models | ❌ **Paid only** (Requires pre-paid credits) |
-| **Files API** | ✅ Uploads media up to 2GB with server-side processing & automated cleanup | ❌ N/A | ❌ N/A |
-| **Recommendation** | 🏆 **Best & Only Viable Free Choice for Video** | Great for pure text, not video | Not suitable |
+  <p>
+    <a href="https://python.org/"><img src="https://img.shields.io/badge/Python-3.10%2B-blue?logo=python" alt="Python Version" /></a>
+    <a href="https://developers.facebook.com/"><img src="https://img.shields.io/badge/Graph_API-v19.0%2B-blue?logo=meta" alt="Graph API" /></a>
+    <a href="https://aistudio.google.com/"><img src="https://img.shields.io/badge/AI-Google_Gemini-orange?logo=google" alt="Gemini API" /></a>
+    <a href="https://flask.palletsprojects.com/"><img src="https://img.shields.io/badge/Framework-Flask-black?logo=flask" alt="Flask" /></a>
+  </p>
+</div>
 
 ---
 
-## How It Works
+## 📌 Overview
+
+**Refutation.app** is an enterprise-grade automation service that listens for `@mentions` and direct comments on your Instagram Business or Creator account. When triggered, the service automatically downloads the associated media (Reels, Videos, Carousels, Photos) and utilizes **Google Gemini's multimodal vision and audio engine** to contextualize the user's intent alongside your brand guidelines. 
+
+The bot then drafts an authentic, context-aware reply, publishes it instantly via Instagram's official Graph API, and dispatches a realtime alert to your team via Telegram.
+
+## ✨ Core Features
+
+- **Multimodal Video & Audio Understanding**: Seamlessly processes video files, dialogue, gestures, and text overlays by uploading MP4/MOV assets directly to Google Gemini.
+- **Direct Comments & Mentions Support**: Responds contextually whether the user tags your account in a third-party post, or comments directly on your own content.
+- **Custom Knowledge Base**: Injects a highly customizable `knowledge_base.txt` into the LLM context to guarantee brand consistency and correct factual recall.
+- **Graceful Error Handling & Fallbacks**: Automatically reverts to text-only analysis (caption + comment) if Meta restricts video downloads due to copyrighted audio policies.
+- **Secure Webhook Verification**: Implements strict HMAC-SHA256 signature verification matching Meta's exact specifications to protect endpoints from unauthorized requests.
+- **Realtime Telegram Alerts**: Instant push notifications detailing user interactions, generated replies, and quick links to the original posts.
+
+---
+
+## 🏗️ Architecture Workflow
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as User on Instagram
-    participant Meta as Meta Graph Webhook
-    participant Bot as Flask Server (app.py)
-    participant Gemini as Google Gemini 3.6 Flash
-    participant TG as Telegram Bot
+    actor User as Instagram User
+    participant Meta as Meta Graph API
+    participant Bot as Flask Webhook (app.py)
+    participant Gemini as Google Gemini API
+    participant TG as Telegram API
 
-    User->>Meta: Mentions @yourbot in a Reel/Video comment or caption
-    Meta->>Bot: POST /webhook (mentions payload)
-    Bot->>Meta: GET /{ig_user_id} (fetch media_url, caption, comment text)
-    alt Media URL Available
-        Bot->>Bot: Download Video/Image to temporary storage
-        Bot->>Gemini: Upload MP4/JPG via Files API & Wait for ACTIVE state
-        Bot->>Gemini: Generate reply (Video + Caption + Comment + Knowledge Base)
-        Bot->>Gemini: Delete temporary uploaded file
-    else Media URL Unavailable (e.g. copyright audio)
-        Bot->>Gemini: Generate text-only reply (Caption + Comment + Knowledge Base)
+    User->>Meta: Comments on post or @mentions brand
+    Meta->>Bot: POST /webhook (HMAC-SHA256 secured)
+    Bot->>Meta: GET /{ig_user_id} (Extract media, text, metadata)
+    alt Media Download Authorized
+        Bot->>Bot: Securely buffer video/image to temporary disk
+        Bot->>Gemini: Upload via Files API (Wait for ACTIVE state)
+        Bot->>Gemini: Generate reply (Media + Caption + Context + KB)
+        Bot->>Gemini: Cleanup remote assets
+    else Media Restricted (e.g., Licensed Audio)
+        Bot->>Gemini: Generate text-only reply (Caption + Context + KB)
     end
-    Bot->>Meta: POST /{ig_user_id}/mentions (publish reply)
-    Bot->>TG: Send Telegram notification with reply & post link
+    Bot->>Meta: POST /{ig_user_id}/mentions (Publish Response)
+    Bot->>TG: Push Telegram notification containing audit log
 ```
 
 ---
 
-## Prerequisites
+## 🚀 Getting Started
 
-1. **Instagram Business or Creator Account** (Settings → Account type and tools → Switch to Professional Account).
-2. Linked to a **Facebook Page** where you are an admin.
-3. A **Meta Developer Account & App** at [developers.facebook.com](https://developers.facebook.com) ("Business" type) with the **Instagram Graph API** product added.
-4. A free **Gemini API Key** from [Google AI Studio](https://aistudio.google.com/apikey) (no credit card needed).
-5. A **Telegram Bot** created via [@BotFather](https://t.me/BotFather) and your chat ID.
+### Prerequisites
 
----
+1. **Instagram Professional Account**: Must be configured as a Business or Creator account and linked to an administered Facebook Page.
+2. **Meta Developer App**: A "Business" type app at [developers.facebook.com](https://developers.facebook.com) with the Instagram Graph API product configured.
+3. **Google Gemini API Key**: Free API key from [Google AI Studio](https://aistudio.google.com/).
+4. **Python 3.10+** environment.
 
-## Setup Walkthrough
+### 1. Environment Configuration
 
-### 1. Meta Developer App & Token Setup
-1. Go to [developers.facebook.com](https://developers.facebook.com) → **My Apps** → **Create App** → choose **Business**.
-2. Add the **Instagram Graph API** product.
-3. Copy **App ID** and **App Secret** (`META_APP_SECRET`) from **App Settings → Basic**.
-4. In [Graph API Explorer](https://developers.facebook.com/tools/explorer):
-   - Select your app, click **Get Token** → **Get User Access Token**.
-   - Select permissions: `instagram_basic`, `instagram_manage_comments`, `pages_show_list`, `pages_read_engagement`.
-   - Run `GET /me/accounts` to get your Page Access Token.
-   - Run `GET /{page-id}?fields=instagram_business_account` to get your `IG_USER_ID`.
-   - Exchange the token for a 60-day long-lived token via Meta's OAuth endpoint, then copy it to `IG_ACCESS_TOKEN`.
+Clone the repository and prepare your environment:
 
-### 2. Google Gemini API Key
-1. Visit [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
-2. Create a free API key and set it as `GEMINI_API_KEY` in `.env`.
-3. The default model is `gemini-3.6-flash` (or `gemini-3.7-flash`), which is optimized for fast multimodal video reasoning.
-
-### 3. Telegram Notifications
-1. Message [@BotFather](https://t.me/BotFather) → `/newbot` → copy the token into `TELEGRAM_BOT_TOKEN`.
-2. Message your bot anything, then visit `https://api.telegram.org/bot<TOKEN>/getUpdates` to get your numeric `chat.id` (`TELEGRAM_CHAT_ID`).
-
-### 4. Custom Knowledge Base (Optional)
-- Edit `knowledge_base.txt` to add your own brand facts, FAQs, and tone guidelines. The bot will strictly follow this dataset when crafting replies.
-
-### 5. Local Run & Webhook Testing
 ```bash
-# 1. Install dependencies
+git clone https://github.com/AmmarFaizulHasan/Refutation.app.git
+cd Refutation.app
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-# 2. Copy and configure .env
 cp .env.example .env
+```
 
-# 3. Start the Flask server
+Define the following parameters in your `.env` file:
+
+| Variable | Description |
+| :--- | :--- |
+| `IG_USER_ID` | Your numeric Instagram Business Account ID. |
+| `IG_ACCESS_TOKEN` | A Long-Lived Page Access Token with `instagram_manage_comments` permission. |
+| `META_APP_SECRET` | App Secret found in Meta App Dashboard (used for HMAC verification). |
+| `WEBHOOK_VERIFY_TOKEN` | Custom secure string configured in Meta Webhook Dashboard. |
+| `GEMINI_API_KEY` | API Key generated from Google AI Studio. |
+| `TELEGRAM_BOT_TOKEN` | Token provided by @BotFather (optional). |
+| `TELEGRAM_CHAT_ID` | Numeric Chat ID for notifications (optional). |
+
+### 2. Local Development & Testing
+
+Start the application daemon and expose it securely via local tunnel (e.g., Localtunnel or Ngrok):
+
+```bash
+# Terminal 1: Start Flask Server
 python app.py
 
-# 4. In a separate terminal, expose port 8000 via ngrok
-ngrok http 8000
+# Terminal 2: Expose Webhook securely
+npx localtunnel --port 8000 --subdomain my-brand-bot
 ```
 
-### 6. Register Webhook with Meta
-1. Go to your Meta App Dashboard → **Webhooks** → select **Instagram**.
-2. Set Callback URL to `https://<your-ngrok-url>/webhook` and Verify Token to your `WEBHOOK_VERIFY_TOKEN`.
-3. Click **Verify and Save**, then subscribe to the **`mentions`** field.
+### 3. Meta Webhook Registration
+
+1. Navigate to the **Meta App Dashboard** → **Webhooks** → **Instagram**.
+2. Update **Callback URL**: `https://my-brand-bot.loca.lt/webhook`
+3. Enter your **Verify Token** (`WEBHOOK_VERIFY_TOKEN`).
+4. Click **Verify and Save**.
+5. Subscribe to the **`mentions`** and **`comments`** webhook fields.
 
 ---
 
-## Important Media & API Limitations
+## 🧠 Why Google Gemini?
 
-- **Copyrighted / Licensed Music on Reels**: Meta's Graph API automatically omits `media_url` for Reels containing licensed commercial audio or where the post owner has disabled Reel downloads.
-  - **Graceful Fallback**: The bot detects this and automatically falls back to analyzing the post caption + user comment text without failing.
-- **Stories**: Mentions on Instagram Stories are not supported by the Mentions API.
-- **Private Accounts**: Webhooks will not trigger for mentions from private accounts.
-- **Tagged Photos**: Being tagged in a photo (without an `@mention` in text/caption) does not fire a mention webhook.
+Unlike text-only LLM endpoints, the **Google Gemini API (`gemini-3.6-flash`)** natively supports asynchronous video processing. This allows the bot to ingest raw `.mp4` and `.mov` files, interpreting visual frame sequences, spoken dialogue, embedded text overlays, and gestures seamlessly—a crucial requirement for intelligently responding to complex Instagram Reels.
 
 ---
 
-## Production Deployment
+## ⚠️ Known Limitations
 
-You can deploy this on **Render**, **Railway**, **Fly.io**, or any VPS:
-- **Build Command**: `pip install -r requirements.txt`
-- **Start Command**: `python app.py`
-- Set all environment variables from `.env` in your hosting dashboard.
-- Update your Meta Webhook callback URL to your production domain.
+- **Copyrighted Audio**: Meta's Graph API redacts the `media_url` payload for Reels utilizing licensed, commercial tracks. The application will elegantly detect this state and route the request to a text-only generative fallback.
+- **Instagram Stories**: The official Meta Graph API currently does not dispatch webhook events for mentions within 24-hour Stories.
+- **Private Accounts**: Webhook payloads are intentionally suppressed by Meta when the triggering mention originates from a private user profile.
 
+---
+
+## 🔒 Security
+
+This application enforces mandatory `X-Hub-Signature-256` payload verification matching Meta's required specifications. For internal development and load testing, you may optionally configure `BYPASS_SIGNATURE_CHECK=1` to allow mock simulated payloads. Ensure this is explicitly disabled (`0` or removed) in production deployments.
+
+---
+
+<div align="center">
+  <p>Designed and maintained by Ammar Faizul Hasan</p>
+</div>
