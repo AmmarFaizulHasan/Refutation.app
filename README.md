@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>📸 Refutation.app</h1>
+  <h1>Refutation.app</h1>
   <p><strong>Intelligent Multimodal Instagram Mention & Comment Reply Automation</strong></p>
 
   <p>
@@ -12,13 +12,13 @@
 
 ---
 
-## 📌 Overview
+## Overview
 
 **Refutation.app** is an enterprise-grade automation service that listens for `@mentions` and direct comments on your Instagram Business or Creator account. When triggered, the service automatically downloads the associated media (Reels, Videos, Carousels, Photos) and utilizes **Google Gemini's multimodal vision and audio engine** to contextualize the user's intent alongside your brand guidelines. 
 
 The bot then drafts an authentic, context-aware reply, publishes it instantly via Instagram's official Graph API, and dispatches a realtime alert to your team via Telegram.
 
-## ✨ Core Features
+## Core Features
 
 - **Multimodal Video & Audio Understanding**: Seamlessly processes video files, dialogue, gestures, and text overlays by uploading MP4/MOV assets directly to Google Gemini.
 - **Direct Comments & Mentions Support**: Responds contextually whether the user tags your account in a third-party post, or comments directly on your own content.
@@ -29,7 +29,7 @@ The bot then drafts an authentic, context-aware reply, publishes it instantly vi
 
 ---
 
-## 🏗️ Architecture Workflow
+## Architecture Workflow
 
 ```mermaid
 sequenceDiagram
@@ -57,7 +57,7 @@ sequenceDiagram
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -113,13 +113,13 @@ npx localtunnel --port 8000 --subdomain my-brand-bot
 
 ---
 
-## 🧠 Why Google Gemini?
+## Why Google Gemini?
 
 Unlike text-only LLM endpoints, the **Google Gemini API (`gemini-3.6-flash`)** natively supports asynchronous video processing. This allows the bot to ingest raw `.mp4` and `.mov` files, interpreting visual frame sequences, spoken dialogue, embedded text overlays, and gestures seamlessly—a crucial requirement for intelligently responding to complex Instagram Reels.
 
 ---
 
-## ⚠️ Known Limitations
+## Known Limitations
 
 - **Copyrighted Audio**: Meta's Graph API redacts the `media_url` payload for Reels utilizing licensed, commercial tracks. The application will elegantly detect this state and route the request to a text-only generative fallback.
 - **Instagram Stories**: The official Meta Graph API currently does not dispatch webhook events for mentions within 24-hour Stories.
@@ -127,7 +127,7 @@ Unlike text-only LLM endpoints, the **Google Gemini API (`gemini-3.6-flash`)** n
 
 ---
 
-## 🔒 Security
+## Security
 
 This application enforces mandatory `X-Hub-Signature-256` payload verification matching Meta's required specifications. For internal development and load testing, you may optionally configure `BYPASS_SIGNATURE_CHECK=1` to allow mock simulated payloads. Ensure this is explicitly disabled (`0` or removed) in production deployments.
 
