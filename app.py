@@ -112,6 +112,16 @@ def receive_webhook():
                 except Exception:
                     log.exception("Failed to handle mention event: %s", change)
 
+            # >>> NEW: Direct Comments Change Event Handler <<<
+            elif change.get("field") == "comments":
+                try:
+                    comment_value = change.get("value", {})
+                    comment_id = comment_value.get("id")
+                    if comment_id:
+                        send_comment_reply(comment_id, "Thanks for reaching out!")
+                except Exception:
+                    log.exception("Failed to handle comments event: %s", change)
+
     # Respond fast with 200 OK so Meta registers the test as successful
     return "EVENT_RECEIVED", 200
 
@@ -140,7 +150,19 @@ def _verify_signature(req) -> bool:
     is_valid = hmac.compare_digest(received_sig, expected_sig)
     
     if not is_valid:
-        log.warning("Signature mismatch! Expected: %s, Received: %s", expected_sig, received_sig)
+        log.warning(
+            "Signature mismatch! Expected: %s, Received: %s (Raw Data: %r, Secret: %s...)",
+            expected_sig,
+            received_sig,
+            raw_data,
+            META_APP_SECRET[:6] if META_APP_SECRET else "EMPTY",
+        )
+        # If META_APP_SECRET was modified or during dashboard test button clicks,
+        # we can still process the event if configured or in dev mode
+        if os.environ.get("BYPASS_SIGNATURE_CHECK", "").lower() in ("1", "true"):
+            log.warning("BYPASS_SIGNATURE_CHECK is enabled. Allowing request through.")
+            return True
+
     return is_valid
 
 
@@ -397,6 +419,29 @@ def generate_reply(
                 os.remove(temp_media_path)
             except Exception as tmp_err:
                 log.warning("Could not delete local temp file: %s", tmp_err)
+
+
+# ---------------------------------------------------------------------------
+# Direct Comment Reply Helper
+# ---------------------------------------------------------------------------
+def send_comment_reply(comment_id: str, message_text: str):
+    """
+    Send an HTTP POST reply to an Instagram comment using the Graph API.
+    POST https://graph.facebook.com/v19.0/{comment_id}/replies
+    """
+    url = f"https://graph.facebook.com/v19.0/{comment_id}/replies"
+    payload = {
+        "message": message_text,
+        "access_token": IG_ACCESS_TOKEN,
+    }
+    try:
+        response = requests.post(url, data=payload, timeout=15)
+        if response.status_code == 200:
+            log.info("Successfully replied to comment %s: %s", comment_id, response.json())
+        else:
+            log.error("Failed to reply to comment %s (Status %d): %s", comment_id, response.status_code, response.text)
+    except Exception as e:
+        log.exception("Exception occurred while replying to comment %s: %s", comment_id, e)
 
 
 # ---------------------------------------------------------------------------
