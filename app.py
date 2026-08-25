@@ -150,6 +150,10 @@ def receive_webhook():
 
 def _verify_signature(req) -> bool:
     """Confirms the request originated from Meta using HMAC SHA-256 (or SHA-1 fallback)."""
+    # If signature check is bypassed for testing/development, allow all requests immediately
+    if os.environ.get("BYPASS_SIGNATURE_CHECK", "").lower() in ("1", "true"):
+        return True
+
     sig_header = req.headers.get("X-Hub-Signature-256") or req.headers.get("X-Hub-Signature")
     if not sig_header:
         log.warning("Signature header (X-Hub-Signature-256 / X-Hub-Signature) missing.")
@@ -179,11 +183,6 @@ def _verify_signature(req) -> bool:
             raw_data,
             META_APP_SECRET[:6] if META_APP_SECRET else "EMPTY",
         )
-        # If META_APP_SECRET was modified or during dashboard test button clicks,
-        # we can still process the event if configured or in dev mode
-        if os.environ.get("BYPASS_SIGNATURE_CHECK", "").lower() in ("1", "true"):
-            log.warning("BYPASS_SIGNATURE_CHECK is enabled. Allowing request through.")
-            return True
 
     return is_valid
 
