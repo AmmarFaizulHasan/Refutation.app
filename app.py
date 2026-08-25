@@ -14,9 +14,16 @@ import hashlib
 import hmac
 import logging
 import os
+import sys
 import tempfile
 import time
 from pathlib import Path
+
+# Configure UTF-8 encoding for Windows console output
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 import requests
 from dotenv import load_dotenv
@@ -119,12 +126,18 @@ def receive_webhook():
                     comment_id = comment_value.get("id")
                     comment_text = comment_value.get("text", "")
 
-                    print(f"[DEBUG] Received comment text: {comment_text}")
+                    try:
+                        print(f"[DEBUG] Received comment text: {comment_text}")
+                    except Exception:
+                        pass
                     log.info("[DEBUG] Received comment text: %s", comment_text)
 
                     if comment_id:
                         ai_text = generate_ai_response(comment_text)
-                        print(f"[DEBUG] AI generated reply: {ai_text}")
+                        try:
+                            print(f"[DEBUG] AI generated reply: {ai_text}")
+                        except Exception:
+                            pass
                         log.info("[DEBUG] AI generated reply: %s", ai_text)
 
                         send_comment_reply(comment_id, ai_text)
