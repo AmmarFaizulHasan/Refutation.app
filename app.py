@@ -112,13 +112,22 @@ def receive_webhook():
                 except Exception:
                     log.exception("Failed to handle mention event: %s", change)
 
-            # >>> NEW: Direct Comments Change Event Handler <<<
+            # >>> Direct Comments Change Event Handler with AI Generation <<<
             elif change.get("field") == "comments":
                 try:
                     comment_value = change.get("value", {})
                     comment_id = comment_value.get("id")
+                    comment_text = comment_value.get("text", "")
+
+                    print(f"[DEBUG] Received comment text: {comment_text}")
+                    log.info("[DEBUG] Received comment text: %s", comment_text)
+
                     if comment_id:
-                        send_comment_reply(comment_id, "Thanks for reaching out!")
+                        ai_text = generate_ai_response(comment_text)
+                        print(f"[DEBUG] AI generated reply: {ai_text}")
+                        log.info("[DEBUG] AI generated reply: %s", ai_text)
+
+                        send_comment_reply(comment_id, ai_text)
                 except Exception:
                     log.exception("Failed to handle comments event: %s", change)
 
@@ -419,6 +428,44 @@ def generate_reply(
                 os.remove(temp_media_path)
             except Exception as tmp_err:
                 log.warning("Could not delete local temp file: %s", tmp_err)
+
+
+# ---------------------------------------------------------------------------
+# AI Comment Reply Generator
+# ---------------------------------------------------------------------------
+def generate_ai_response(user_text: str) -> str:
+    """
+    Use Google Gemini API to generate a short, polite, context-aware Instagram reply.
+    """
+    kb_context = _load_knowledge_base()
+    kb_section = ""
+    if kb_context:
+        kb_section = f"\nBrand Knowledge Base / Guidelines:\n{kb_context}\n"
+
+    prompt = (
+        "You are replying as our official Instagram account (@refutation.app) to a user comment on our post.\n"
+        f"User comment: \"\"\"{user_text}\"\"\"\n\n"
+        "Instructions:\n"
+        "1. Write ONE short, natural, polite, and engaging Instagram reply (1-2 sentences max).\n"
+        "2. Directly address what the user said.\n"
+        "3. Maintain a friendly brand tone, no hashtag spam, no robotic filler.\n"
+        "4. Output only the reply message text."
+    )
+    if kb_section:
+        prompt += f"\n{kb_section}"
+
+    try:
+        response = gemini_client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+        )
+        ai_reply = (response.text or "").strip()
+        if ai_reply:
+            return ai_reply
+    except Exception as e:
+        log.exception("Error generating AI response: %s", e)
+
+    return "Thanks for reaching out! 🙌"
 
 
 # ---------------------------------------------------------------------------
