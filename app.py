@@ -111,11 +111,9 @@ def receive_webhook():
     for entry in body.get("entry", []):
         for change in entry.get("changes", []):
             if change.get("field") == "mentions":
+                from mention_description.handler import process_mention
                 try:
-                    handle_mention(change.get("value", {}))
-                except requests.exceptions.HTTPError as http_err:
-                    # In Meta Dashboard test triggers, mock IDs (e.g. 0 or 17899...) return 400
-                    log.warning("Graph API request for mention failed (likely mock/test event): %s", http_err)
+                    process_mention(change.get("value", {}))
                 except Exception:
                     log.exception("Failed to handle mention event: %s", change)
 
