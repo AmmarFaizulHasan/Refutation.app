@@ -103,44 +103,71 @@ def receive_webhook():
         abort(403)
 
     body = request.get_json(force=True, silent=True) or {}
-    log.info("Received valid webhook event from Meta: %s", body)
+    import json
+    log.info("=== INCOMING WEBHOOK PAYLOAD ===")
+    log.info(json.dumps(body, indent=2))
+    log.info("================================")
 
     if body.get("object") != "instagram":
         return "EVENT_RECEIVED", 200
 
+    BOT_USERNAME = "@refutation.app"
+
     for entry in body.get("entry", []):
         for change in entry.get("changes", []):
-            if change.get("field") == "mentions":
+            field = change.get("field")
+            val = change.get("value", {})
+
+            # Anti-loop check
+            from_obj = val.get("from", {})
+            from_id = from_obj.get("id")
+            if from_id and str(from_id) == str(IG_USER_ID):
+                log.info("Anti-loop check: ignoring webhook triggered by the bot itself.")
+                continue
+
+            if field == "mentions":
                 from mention_description.handler import process_mention
                 try:
-                    process_mention(change.get("value", {}))
+                    process_mention(val)
                 except Exception:
                     log.exception("Failed to handle mention event: %s", change)
 
-            # >>> Direct Comments Change Event Handler with AI Generation <<<
-            elif change.get("field") == "comments":
-                try:
-                    comment_value = change.get("value", {})
-                    comment_id = comment_value.get("id")
-                    comment_text = comment_value.get("text", "")
-
+            elif field == "comments":
+                comment_text = val.get("text", "")
+                
+                # Check if it's an external mention OR a standard comment
+                if BOT_USERNAME in comment_text.lower():
+                    log.info("Detected external mention in 'comments' field. Routing to mention_description module.")
+                    from mention_description.handler import process_mention
                     try:
-                        print(f"[DEBUG] Received comment text: {comment_text}")
+                        # Normalize comment_id
+                        if "comment_id" not in val and "id" in val:
+                            val["comment_id"] = val["id"]
+                        process_mention(val)
                     except Exception:
-                        pass
-                    log.info("[DEBUG] Received comment text: %s", comment_text)
+                        log.exception("Failed to handle external mention via comments event: %s", change)
+                else:
+                    # Standard comment reply logic
+                    try:
+                        comment_id = val.get("id") or val.get("comment_id")
 
-                    if comment_id:
-                        ai_text = generate_ai_response(comment_text)
                         try:
-                            print(f"[DEBUG] AI generated reply: {ai_text}")
+                            print(f"[DEBUG] Received normal comment text: {comment_text}")
                         except Exception:
                             pass
-                        log.info("[DEBUG] AI generated reply: %s", ai_text)
+                        log.info("[DEBUG] Received normal comment text: %s", comment_text)
 
-                        send_comment_reply(comment_id, ai_text)
-                except Exception:
-                    log.exception("Failed to handle comments event: %s", change)
+                        if comment_id:
+                            ai_text = generate_ai_response(comment_text)
+                            try:
+                                print(f"[DEBUG] AI generated reply: {ai_text}")
+                            except Exception:
+                                pass
+                            log.info("[DEBUG] AI generated reply: %s", ai_text)
+
+                            send_comment_reply(comment_id, ai_text)
+                    except Exception:
+                        log.exception("Failed to handle normal comments event: %s", change)
 
     # Respond fast with 200 OK so Meta registers the test as successful
     return "EVENT_RECEIVED", 200
