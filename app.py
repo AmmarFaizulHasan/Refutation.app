@@ -111,14 +111,12 @@ def receive_webhook():
     if body.get("object") != "instagram":
         return "EVENT_RECEIVED", 200
 
-    BOT_USERNAME = "@refutation.app"
-
     for entry in body.get("entry", []):
         for change in entry.get("changes", []):
             field = change.get("field")
             val = change.get("value", {})
 
-            # Anti-loop check
+            # Anti-loop check on all incoming webhook events
             from_obj = val.get("from", {})
             from_id = from_obj.get("id")
             from_username = from_obj.get("username", "")
@@ -127,6 +125,11 @@ def receive_webhook():
                 continue
 
             if field == "mentions":
+                # Normalize comment_id
+                comment_id = val.get("comment_id") or val.get("id")
+                if "comment_id" not in val and comment_id:
+                    val["comment_id"] = comment_id
+
                 from mention_description.handler import process_mention
                 try:
                     process_mention(val)
@@ -134,41 +137,28 @@ def receive_webhook():
                     log.exception("Failed to handle mention event: %s", change)
 
             elif field == "comments":
-                comment_text = val.get("text", "")
-                
-                # Check if it's an external mention OR a standard comment
-                if BOT_USERNAME in comment_text.lower():
-                    log.info("Detected external mention in 'comments' field. Routing to mention_description module.")
-                    from mention_description.handler import process_mention
-                    try:
-                        # Normalize comment_id
-                        if "comment_id" not in val and "id" in val:
-                            val["comment_id"] = val["id"]
-                        process_mention(val)
-                    except Exception:
-                        log.exception("Failed to handle external mention via comments event: %s", change)
-                else:
-                    # Standard comment reply logic
-                    try:
-                        comment_id = val.get("id") or val.get("comment_id")
+                # Direct comments on owned posts -> Refutation response
+                try:
+                    comment_id = val.get("id") or val.get("comment_id")
+                    comment_text = val.get("text", "")
 
+                    try:
+                        print(f"[DEBUG] Received owned post comment text: {comment_text}")
+                    except Exception:
+                        pass
+                    log.info("[DEBUG] Received owned post comment text: %s", comment_text)
+
+                    if comment_id:
+                        ai_text = generate_ai_response(comment_text)
                         try:
-                            print(f"[DEBUG] Received normal comment text: {comment_text}")
+                            print(f"[DEBUG] AI generated reply: {ai_text}")
                         except Exception:
                             pass
-                        log.info("[DEBUG] Received normal comment text: %s", comment_text)
+                        log.info("[DEBUG] AI generated reply: %s", ai_text)
 
-                        if comment_id:
-                            ai_text = generate_ai_response(comment_text)
-                            try:
-                                print(f"[DEBUG] AI generated reply: {ai_text}")
-                            except Exception:
-                                pass
-                            log.info("[DEBUG] AI generated reply: %s", ai_text)
-
-                            send_comment_reply(comment_id, ai_text)
-                    except Exception:
-                        log.exception("Failed to handle normal comments event: %s", change)
+                        send_comment_reply(comment_id, ai_text)
+                except Exception:
+                    log.exception("Failed to handle comments event: %s", change)
 
     # Respond fast with 200 OK so Meta registers the test as successful
     return "EVENT_RECEIVED", 200
