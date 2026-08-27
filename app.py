@@ -121,7 +121,8 @@ def receive_webhook():
             # Anti-loop check
             from_obj = val.get("from", {})
             from_id = from_obj.get("id")
-            if from_id and str(from_id) == str(IG_USER_ID):
+            from_username = from_obj.get("username", "")
+            if (from_id and str(from_id) == str(IG_USER_ID)) or from_username.lower() == "refutation.app":
                 log.info("Anti-loop check: ignoring webhook triggered by the bot itself.")
                 continue
 

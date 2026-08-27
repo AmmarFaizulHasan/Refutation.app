@@ -1,6 +1,6 @@
 import requests
 import logging
-from .config import IG_ACCESS_TOKEN, GRAPH_BASE
+from .config import IG_ACCESS_TOKEN, GRAPH_BASE, IG_USER_ID
 
 log = logging.getLogger("mention-bot")
 
@@ -14,8 +14,9 @@ def fetch_comment_context(comment_id: str) -> dict | None:
     if not comment_id:
         return None
 
-    url = f"{GRAPH_BASE}/{comment_id}"
+    url = f"{GRAPH_BASE}/{IG_USER_ID}/mentioned_comment"
     params = {
+        "comment_id": comment_id,
         "fields": "text,username,media{media_type,caption,media_url,permalink,children{media_type,media_url}}",
         "access_token": IG_ACCESS_TOKEN
     }
