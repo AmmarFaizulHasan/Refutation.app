@@ -137,28 +137,40 @@ def receive_webhook():
                     log.exception("Failed to handle mention event: %s", change)
 
             elif field == "comments":
-                # Direct comments on owned posts -> Refutation response
-                try:
-                    comment_id = val.get("id") or val.get("comment_id")
-                    comment_text = val.get("text", "")
+                comment_id = val.get("id") or val.get("comment_id")
+                comment_text = val.get("text", "")
 
+                # If the comment explicitly @mentions the bot, route to the mention description module
+                if "@refutation.app" in comment_text.lower():
+                    log.info("Detected @refutation.app mention in 'comments' field payload. Routing to mention_description module.")
+                    if "comment_id" not in val and comment_id:
+                        val["comment_id"] = comment_id
+
+                    from mention_description.handler import process_mention
                     try:
-                        print(f"[DEBUG] Received owned post comment text: {comment_text}")
+                        process_mention(val)
                     except Exception:
-                        pass
-                    log.info("[DEBUG] Received owned post comment text: %s", comment_text)
-
-                    if comment_id:
-                        ai_text = generate_ai_response(comment_text)
+                        log.exception("Failed to handle mention via comments event: %s", change)
+                else:
+                    # Direct comments on owned posts without @mention -> Standard AI comment reply
+                    try:
                         try:
-                            print(f"[DEBUG] AI generated reply: {ai_text}")
+                            print(f"[DEBUG] Received owned post comment text: {comment_text}")
                         except Exception:
                             pass
-                        log.info("[DEBUG] AI generated reply: %s", ai_text)
+                        log.info("[DEBUG] Received owned post comment text: %s", comment_text)
 
-                        send_comment_reply(comment_id, ai_text)
-                except Exception:
-                    log.exception("Failed to handle comments event: %s", change)
+                        if comment_id:
+                            ai_text = generate_ai_response(comment_text)
+                            try:
+                                print(f"[DEBUG] AI generated reply: {ai_text}")
+                            except Exception:
+                                pass
+                            log.info("[DEBUG] AI generated reply: %s", ai_text)
+
+                            send_comment_reply(comment_id, ai_text)
+                    except Exception:
+                        log.exception("Failed to handle comments event: %s", change)
 
     # Respond fast with 200 OK so Meta registers the test as successful
     return "EVENT_RECEIVED", 200
